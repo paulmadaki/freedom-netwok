@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Dashboard - Freedom Network</title>
+  
+  <!-- Security Headers -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com;
+    style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com;
+    img-src 'self' data: https:;
+  ">
+  
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+  <style>
+    @media (max-width: 640px) {
+      body {
+        padding: 0 !important;
+      }
+      main, .main-content {
+        padding: 0.5rem !important;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+      }
+      .stat-card {
+        margin-bottom: 1rem;
+        padding: 0.75rem !important;
+      }
+      .max-w-4xl, .max-w-6xl {
+        max-width: 100vw !important;
+      }
+      .text-2xl, .text-xl, .text-lg {
+        font-size: 1.1rem !important;
+      }
+      .referral-link {
+        word-break: break-all;
+        font-size: 0.875rem;
+      }
+    }
+    
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      background-color: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+    }
+    
+    .success-message {
+      background-color: #efe;
+      border: 1px solid #cfc;
+      color: #3c3;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .payout-warning {
+      background-color: #fef3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .payout-eligible {
+      background-color: #d1edff;
+      border: 1px solid #74c0fc;
+      color: #0c4a6e;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <!-- Loading Spinner -->
+  <div id="loadingSpinner" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg text-center">
+      <div class="loading-spinner mx-auto mb-4"></div>
+      <p class="text-sm">Loading dashboard...</p>
+    </div>
+  </div>
+
+  <!-- Error Display -->
+  <div id="errorContainer" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg text-center max-w-md mx-4">
+      <h2 class="text-xl font-bold text-red-600 mb-4">Error Loading Dashboard</h2>
+      <p id="errorMessage" class="mb-4 text-gray-700"></p>
+      <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Refresh Page
+      </button>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="bg-blue-600 p-4 text-white" role="navigation">
+    <div class="flex justify-between items-center max-w-6xl mx-auto">
+      <h1 class="text-xl font-bold">Freedom Network</h1>
+      <button id="logoutBtn" class="bg-white text-blue-600 px-3 py-1 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Logout">
+        Logout
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto mt-8 p-4" role="main">
+    <h2 class="text-2xl font-bold mb-4">
+      Welcome, <span id="userEmail" class="text-blue-600" aria-label="User email">Loading...</span>
+    </h2>
+
+    <!-- Dashboard Statistics -->
+    <section class="stats-grid grid gap-4 md:grid-cols-3 mb-6" aria-label="Dashboard statistics">
+      <div class="stat-card bg-white p-4 rounded shadow" role="region" aria-labelledby="referral-heading">
+        <h3 id="referral-heading" class="font-semibold text-lg">Referral Link</h3>
+        <p id="referralLink" class="referral-link break-words text-blue-600 mt-2" aria-describedby="referral-heading">
+          Loading...
+        </p>
+        <button id="copyReferralBtn" class="mt-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+          Copy Link
+        </button>
+      </div>
+
+      <div class="stat-card bg-white p-4 rounded shadow" role="region" aria-labelledby="referrals-heading">
+        <h3 id="referrals-heading" class="font-semibold text-lg">Total Referrals</h3>
+        <p id="totalReferrals" class="text-2xl font-bold text-green-600" aria-describedby="referrals-heading">
+          Loading...
+        </p>
+      </div>
+
+      <div class="stat-card bg-white p-4 rounded shadow" role="region" aria-labelledby="level-heading">
+        <h3 id="level-heading" class="font-semibold text-lg">Your Level</h3>
+        <p id="userLevel" class="text-xl font-bold" aria-describedby="level-heading">
+          Loading...
+        </p>
+      </div>
+    </section>
+
+    <!-- Earnings Section -->
+    <section class="bg-white p-4 rounded shadow mb-6" aria-label="Earnings information">
+      <h3 class="font-semibold text-lg mb-4">Earnings Summary</h3>
+      <div class="space-y-2">
+        <p class="flex justify-between">
+          <span>Direct Referral Earnings:</span>
+          <span id="directEarnings" class="font-semibold">Loading...</span>
+        </p>
+        <p class="flex justify-between">
+          <span>Passive Pool Earnings:</span>
+          <span id="poolEarnings" class="font-semibold">Loading...</span>
+        </p>
+        <hr class="my-2">
+        <p class="flex justify-between text-lg font-bold">
+          <span>Total Earnings:</span>
+          <span id="totalEarnings" class="text-green-600">Loading...</span>
+        </p>
+      </div>
+      
+      <!-- Payout Section -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700">Minimum Payout:</span>
+          <span class="text-sm font-semibold text-blue-600">₦5,000</span>
+        </div>
+        
+        <button id="requestPayout" class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400">
+          Request Payout
+        </button>
+        
+        <!-- Payout Status Message -->
+        <div id="payoutStatus" class="hidden"></div>
+      </div>
+    </section>
+
+    <!-- Bank Details Section -->
+    <section class="bg-white p-4 rounded shadow mb-6" aria-label="Bank account information">
+      <h3 class="font-semibold text-lg mb-4">Bank Details for Payout</h3>
+      <form id="accountForm" class="space-y-4">
+        <div>
+          <label for="bankName" class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+          <input 
+            type="text" 
+            id="bankName" 
+            placeholder="Enter your bank name" 
+            required 
+            class="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
+            aria-describedby="bankName-error"
+          />
+          <div id="bankName-error" class="text-red-600 text-sm mt-1 hidden"></div>
+        </div>
+        
+        <div>
+          <label for="accountNumber" class="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+          <input 
+            type="text" 
+            id="accountNumber" 
+            placeholder="Enter 10-digit account number" 
+            required 
+            maxlength="10"
+            pattern="[0-9]{10}"
+            class="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
+            aria-describedby="accountNumber-error"
+          />
+          <div id="accountNumber-error" class="text-red-600 text-sm mt-1 hidden"></div>
+        </div>
+        
+        <button 
+          type="submit" 
+          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Save Bank Details
+        </button>
+        <div id="accountMsg" class="mt-2"></div>
+      </form>
+    </section>
+
+    <!-- Links Section -->
+    <section class="space-y-2" aria-label="Additional links">
+      <a href="terms-and-con.html" class="text-blue-600 hover:text-blue-800 block focus:outline-none focus:ring-2 focus:ring-blue-300 rounded">
+        Terms and Conditions
+      </a>
+      <a href="https://chat.whatsapp.com/JAS925JbxNn5oRrs7ONdZV" class="text-green-600 hover:text-green-800 block focus:outline-none focus:ring-2 focus:ring-green-300 rounded" target="_blank" rel="noopener noreferrer">
+        Join our WhatsApp group
+      </a>
+    </section>
+
+    <!-- User Withdrawals Section -->
+    <div id="userWithdrawals" class="bg-white p-4 rounded shadow mb-4"></div>
+  </main>
+
+  <!-- Firebase JS SDKs (Version 10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { 
+      getFirestore, doc, getDoc, setDoc, updateDoc, increment, arrayUnion, query, collection, where, orderBy, getDocs, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    
+    function formatDate(val) {
+      if (!val) return '';
+      if (typeof val.toDate === 'function') return val.toDate().toLocaleString();
+      if (val instanceof Date) return val.toLocaleString();
+      return '';
+    }
+
+    async function loadUserWithdrawals(userId, db) {
+      const q = query(
+        collection(db, "payoutRequests"),
+        where("userId", "==", userId),
+        orderBy("requestedAt", "desc")
+      );
+      const snap = await getDocs(q);
+      let html = "<h3 class='font-semibold mb-2'>Payout History</h3>";
+      if (snap.empty) {
+        html += "<div class='text-gray-500'>No payout requests yet.</div>";
+      } else {
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          html += `
+            <div class="mb-2 p-2 border rounded">
+              <div><b>Amount:</b> ₦${d.amount ? d.amount.toLocaleString() : ""}</div>
+              <div><b>Status:</b> 
+                <span class="${d.status === 'paid' ? 'text-green-600' : d.status === 'pending' ? 'text-yellow-600' : 'text-blue-600'}">
+                  ${d.status.charAt(0).toUpperCase() + d.status.slice(1)}
+                </span>
+              </div>
+              <div><b>Requested:</b> ${formatDate(d.requestedAt)}</div>
+              ${d.paidAt ? `<div><b>Paid:</b> ${formatDate(d.paidAt)}</div>` : ""}
+            </div>
+          `;
+        });
+      }
+      document.getElementById("userWithdrawals").innerHTML = html;
+    }
+
+    // Dashboard Class for better organization
+    class Dashboard {
+      constructor() {
+        this.MINIMUM_PAYOUT = 5000; // Minimum payout amount in Naira
+        this.initFirebase();
+        this.bindEvents();
+        this.elements = this.getElements();
+      }
+
+      initFirebase() {
+        // Firebase Config
+        const firebaseConfig = {
+          apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
+          authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
+          projectId: "polo-tech-media-network-49de0",
+          storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
+          messagingSenderId: "825576121343",
+          appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
+        };
+
+        this.app = initializeApp(firebaseConfig);
+        this.auth = getAuth(this.app);
+        this.db = getFirestore(this.app);
+
+        // Set up auth state listener
+        onAuthStateChanged(this.auth, (user) => this.handleAuthStateChange(user));
+      }
+
+      getElements() {
+        return {
+          userEmail: document.getElementById("userEmail"),
+          referralLink: document.getElementById("referralLink"),
+          totalReferrals: document.getElementById("totalReferrals"),
+          userLevel: document.getElementById("userLevel"),
+          directEarnings: document.getElementById("directEarnings"),
+          poolEarnings: document.getElementById("poolEarnings"),
+          totalEarnings: document.getElementById("totalEarnings"),
+          loadingSpinner: document.getElementById("loadingSpinner"),
+          errorContainer: document.getElementById("errorContainer"),
+          errorMessage: document.getElementById("errorMessage"),
+          accountForm: document.getElementById("accountForm"),
+          accountMsg: document.getElementById("accountMsg"),
+          bankName: document.getElementById("bankName"),
+          accountNumber: document.getElementById("accountNumber"),
+          logoutBtn: document.getElementById("logoutBtn"),
+          requestPayout: document.getElementById("requestPayout"),
+          copyReferralBtn: document.getElementById("copyReferralBtn"),
+          payoutStatus: document.getElementById("payoutStatus")
+        };
+      }
+
+      bindEvents() {
+        // Logout button
+        document.addEventListener('click', (e) => {
+          if (e.target.id === 'logoutBtn') {
+            this.handleLogout();
+          }
+          if (e.target.id === 'requestPayout') {
+            this.handlePayoutRequest();
+          }
+          if (e.target.id === 'copyReferralBtn') {
+            this.copyReferralLink();
+          }
+        });
+
+        // Account form submission
+        document.addEventListener('submit', (e) => {
+          if (e.target.id === 'accountForm') {
+            e.preventDefault();
+            this.handleBankDetailsSubmission();
+          }
+        });
+
+        // Input validation
+        document.addEventListener('input', (e) => {
+          if (e.target.id === 'accountNumber') {
+            this.validateAccountNumber(e.target);
+          }
+          if (e.target.id === 'bankName') {
+            this.validateBankName(e.target);
+          }
+        });
+      }
+
+      showLoading() {
+        this.elements.loadingSpinner.classList.remove('hidden');
+      }
+
+      hideLoading() {
+        this.elements.loadingSpinner.classList.add('hidden');
+      }
+
+      showError(message) {
+        this.elements.errorMessage.textContent = message;
+        this.elements.errorContainer.classList.remove('hidden');
+        this.hideLoading();
+      }
+
+      hideError() {
+        this.elements.errorContainer.classList.add('hidden');
+      }
+
+      showMessage(element, message, isError = false) {
+        if (!element) return;
+        element.textContent = message;
+        element.className = isError ? 'error-message' : 'success-message';
+        element.classList.remove('hidden');
+        setTimeout(() => {
+          element.classList.add('hidden');
+        }, 5000);
+      }
+
+      async handleAuthStateChange(user) {
+        if (!user) {
+          // Redirect to login if not authenticated
+          window.location.href = 'login.html';
+          return;
+        }
+
+        try {
+          this.showLoading();
+          await this.loadUserData(user);
+          this.hideLoading();
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          this.showError('Failed to load dashboard data. Please try refreshing the page.');
+        }
+      }
+
+      async loadUserData(user) {
+        try {
+          // Display user email
+          this.elements.userEmail.textContent = user.email;
+
+          // Get user document from Firestore
+          const userDoc = await getDoc(doc(this.db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Update UI with user data
+            this.updateDashboard(userData, user.uid);
+            // Load bank details if they exist
+            this.loadBankDetails(userData);
+            // Load user withdrawals
+            loadUserWithdrawals(user.uid, this.db);
+          } else {
+            // Create new user document if it doesn't exist
+            await this.createUserDocument(user);
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          throw error;
+        }
+      }
+
+      async createUserDocument(user) {
+        // Default user data structure
+        const userData = {
+          email: user.email,
+          directReferrals: 0,
+          directEarnings: 0,
+          poolEarnings: 0,
+          matrixLevel: 1,
+          joinedAt: new Date(),
+          bankDetails: null
+        };
+        await setDoc(doc(this.db, 'users', user.uid), userData);
+        this.updateDashboard(userData, user.uid);
+      }
+
+      // --- MAIN DASHBOARD UPDATE LOGIC ---
+      updateDashboard(userData, userId) {
+        // Generate referral link
+        const referralLink = `${window.location.origin}/register.html?ref=${userData.referralCode || userId}`;
+        this.elements.referralLink.textContent = referralLink;
+
+        // Update statistics
+        this.elements.totalReferrals.textContent = userData.directReferrals || 0;
+        this.elements.userLevel.textContent = `Level ${userData.matrixLevel || 1}`;
+        this.elements.directEarnings.textContent = `₦${(userData.directEarnings || 0).toLocaleString()}`;
+        this.elements.poolEarnings.textContent = `₦${(userData.poolEarnings || 0).toLocaleString()}`;
+
+        const totalEarnings = (userData.directEarnings || 0) + (userData.poolEarnings || 0);
+        this.elements.totalEarnings.textContent = `₦${totalEarnings.toLocaleString()}`;
+
+        // Enable/disable payout button based on minimum earnings
+        this.elements.requestPayout.disabled = totalEarnings < this.MINIMUM_PAYOUT;
+        if (totalEarnings < this.MINIMUM_PAYOUT) {
+          this.elements.requestPayout.title = `Minimum payout is ₦${this.MINIMUM_PAYOUT.toLocaleString()}`;
+        } else {
+          this.elements.requestPayout.title = '';
+        }
+      }
+
+      loadBankDetails(userData) {
+        if (userData.bankDetails) {
+          this.elements.bankName.value = userData.bankDetails.bankName || '';
+          this.elements.accountNumber.value = userData.bankDetails.accountNumber || '';
+        }
+      }
+
+      async handleLogout() {
+        try {
+          this.showLoading();
+          await signOut(this.auth);
+          window.location.href = 'login.html';
+        } catch (error) {
+          console.error('Error signing out:', error);
+          this.showError('Failed to logout. Please try again.');
+        }
+      }
+
+      async handleBankDetailsSubmission() {
+        const bankName = this.elements.bankName.value.trim();
+        const accountNumber = this.elements.accountNumber.value.trim();
+
+        if (!this.validateBankDetails(bankName, accountNumber)) {
+          return;
+        }
+
+        try {
+          const user = this.auth.currentUser;
+          if (!user) return;
+
+          await updateDoc(doc(this.db, 'users', user.uid), {
+            bankDetails: {
+              bankName: bankName,
+              accountNumber: accountNumber,
+              updatedAt: new Date()
+            }
+          });
+
+          this.showMessage(this.elements.accountMsg, 'Bank details saved successfully!');
+        } catch (error) {
+          console.error('Error saving bank details:', error);
+          this.showMessage(this.elements.accountMsg, 'Failed to save bank details. Please try again.', true);
+        }
+      }
+
+      validateBankDetails(bankName, accountNumber) {
+        let isValid = true;
+
+        // Validate bank name
+        if (!bankName || bankName.length < 3) {
+          this.showValidationError('bankName', 'Bank name must be at least 3 characters long');
+          isValid = false;
+        } else {
+          this.hideValidationError('bankName');
+        }
+
+        // Validate account number
+        if (!accountNumber || !/^\d{10}$/.test(accountNumber)) {
+          this.showValidationError('accountNumber', 'Account number must be exactly 10 digits');
+          isValid = false;
+        } else {
+          this.hideValidationError('accountNumber');
+        }
+
+        return isValid;
+      }
+
+      validateAccountNumber(input) {
+        const value = input.value.replace(/\D/g, ''); // Remove non-digits
+        input.value = value;
+
+        if (value.length !== 10) {
+          this.showValidationError('accountNumber', 'Account number must be exactly 10 digits');
+        } else {
+          this.hideValidationError('accountNumber');
+        }
+      }
+
+      validateBankName(input) {
+        const value = input.value.trim();
+        if (value.length < 3) {
+          this.showValidationError('bankName', 'Bank name must be at least 3 characters long');
+        } else {
+          this.hideValidationError('bankName');
+        }
+      }
+
+      showValidationError(fieldName, message) {
+        const errorElement = document.getElementById(`${fieldName}-error`);
+        if (errorElement) {
+          errorElement.textContent = message;
+          errorElement.classList.remove('hidden');
+        }
+      }
+
+      hideValidationError(fieldName) {
+        const errorElement = document.getElementById(`${fieldName}-error`);
+        if (errorElement) {
+          errorElement.classList.add('hidden');
+        }
+      }
+
+      async handlePayoutRequest() {
+        try {
+          const user = this.auth.currentUser;
+          if (!user) return;
+
+          // Get current user data
+          const userDoc = await getDoc(doc(this.db, 'users', user.uid));
+          if (!userDoc.exists()) return;
+
+          const userData = userDoc.data();
+          const totalEarnings = (userData.directEarnings || 0) + (userData.poolEarnings || 0);
+
+          if (totalEarnings < this.MINIMUM_PAYOUT) {
+            alert(`Minimum payout amount is ₦${this.MINIMUM_PAYOUT.toLocaleString()}`);
+            return;
+          }
+
+          if (!userData.bankDetails) {
+            alert('Please add your bank details before requesting a payout.');
+            return;
+          }
+
+          // --- Prevent duplicate payout requests ---
+          const q = query(
+            collection(this.db, 'payoutRequests'),
+            where('userId', '==', user.uid),
+            where('status', 'in', ['pending', 'approved', 'paid'])
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            alert('You already have a payout request in progress or paid. Please wait until it is processed before requesting again.');
+            return;
+          }
+
+          // Create payout request
+          const payoutData = {
+            userId: user.uid,
+            email: user.email,
+            amount: totalEarnings,
+            bankDetails: userData.bankDetails,
+            status: 'pending',
+            requestedAt: serverTimestamp()
+          };
+
+          await setDoc(doc(this.db, 'payoutRequests', `${user.uid}_${Date.now()}`), payoutData);
+
+          alert('Payout request submitted successfully! You will be contacted within 24-48 hours.');
+          // Optionally reload payout history
+          loadUserWithdrawals(user.uid, this.db);
+        } catch (error) {
+          console.error('Error requesting payout:', error);
+          alert('Failed to submit payout request. Please try again.');
+        }
+      }
+
+      copyReferralLink() {
+        const referralText = this.elements.referralLink.textContent;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(referralText).then(() => {
+            alert('Referral link copied to clipboard!');
+          }).catch(() => {
+            this.fallbackCopyTextToClipboard(referralText);
+          });
+        } else {
+          this.fallbackCopyTextToClipboard(referralText);
+        }
+      }
+
+      fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          alert('Referral link copied to clipboard!');
+        } catch (err) {
+          alert('Failed to copy referral link. Please copy it manually.');
+        }
+        document.body.removeChild(textArea);
+      }
+    }
+
+    // Initialize dashboard when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      new Dashboard();
+    });
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, setDoc, doc, updateDoc, getDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
+      authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
+      projectId: "polo-tech-media-network-49de0",
+      storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
+      messagingSenderId: "825576121343",
+      appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // --- Registration Handler ---
+    async function registerUser(formData, paymentResponse, transactionRef) {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const user = userCredential.user;
+
+      // 2. Create user document in Firestore with UID as referralCode
+      const userData = {
+        uid: user.uid,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        referralCode: user.uid, // Each user gets their UID as their referral code
+        registrationDate: new Date(),
+        paymentDetails: {
+          reference: paymentResponse.reference,
+          transactionRef: transactionRef,
+          amount: 750000, // ₦7,500 in kobo
+          status: 'successful',
+          paidAt: new Date()
+        },
+        accountStatus: 'active',
+        directReferrals: 0,
+        directEarnings: 0,
+        poolEarnings: 0,
+        matrixLevel: 1,
+        matrixPosition: null
+      };
+      await setDoc(doc(db, 'users', user.uid), userData);
+
+      // 3. If a referral code was used, apply referral bonus
+      if (formData.referral) {
+        await applyReferralBonus(formData.referral, user.uid);
+      }
+    }
+
+    // --- Referral Bonus Logic ---
+    async function applyReferralBonus(referralCode, newUserId) {
+      try {
+        // Assume referralCode is the UID of the referrer
+        const referrerDocRef = doc(db, 'users', referralCode);
+        const referrerDoc = await getDoc(referrerDocRef);
+        if (referrerDoc.exists()) {
+          await updateDoc(referrerDocRef, {
+            directReferrals: increment(1),
+            directEarnings: increment(2500), // ₦2,500 bonus
+            referredUsers: arrayUnion(newUserId)
+          });
+        } else {
+          console.warn('Referral code not found:', referralCode);
+        }
+      } catch (error) {
+        console.error('Error applying referral bonus:', error);
+      }
+    }
+
+    // --- Example Usage in Your Payment Callback ---
+    async function handlePaymentSuccess(response, transactionRef, formData) {
+      try {
+        await registerUser(formData, response, transactionRef);
+        // Redirect or show success message
+        alert('Registration successful!');
+        window.location.href = 'thank-you.html';
+      } catch (error) {
+        alert('Registration failed: ' + error.message);
+      }
+    }
+
+    // --- Example: Collect formData and call handlePaymentSuccess after payment ---
+    // formData = { name, email, phone, password, referral }
+  </script>
+</body>
+</html>

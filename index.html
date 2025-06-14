@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Freedom Network</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    @media (max-width: 640px) {
+      body {
+        padding: 0 !important;
+      }
+      main, .main-content {
+        padding: 0.5rem !important;
+      }
+      .grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+      }
+      .bg-white {
+        margin-bottom: 1rem;
+      }
+      .max-w-4xl, .max-w-6xl {
+        max-width: 100vw !important;
+      }
+      .text-2xl, .text-xl, .text-lg {
+        font-size: 1.1rem !important;
+      }
+      .p-4 {
+        padding: 1rem !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- Hero Section -->
+  <section class="flex flex-col items-center justify-center min-h-[60vh] bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-center px-6">
+    <h1 class="text-4xl md:text-5xl font-bold mb-4">Welcome to Freedom Network</h1>
+    <p class="text-lg md:text-xl max-w-xl mb-8">
+      Pay once. Refer others. Earn endlessly. Build wealth through our innovative one-time MLM system.
+    </p>
+    <div class="flex flex-col md:flex-row gap-4">
+      <a href="register.html" class="bg-white text-blue-600 font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-blue-100 transition duration-300">
+        Join Now
+      </a>
+      <button id="openSignIn" class="bg-blue-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-blue-700 transition duration-300">
+        Sign In
+      </button>
+    </div>
+    <div class="mt-8 animate-bounce">
+      <svg class="mx-auto w-8 h-8 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Sign In Modal -->
+  <div id="signInModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm relative">
+      <button id="closeSignIn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      <h2 class="text-xl font-bold mb-4 text-blue-600 text-center">Sign In</h2>
+      <form id="signInForm">
+        <input type="email" id="modalEmail" placeholder="Email" required class="w-full border px-3 py-2 rounded mb-3" />
+        <input type="password" id="modalPassword" placeholder="Password" required class="w-full border px-3 py-2 rounded mb-4" />
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 w-full rounded hover:bg-blue-700 transition">Login</button>
+        <div id="signInError" class="text-red-600 text-sm mt-2"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Summary & Benefits Section -->
+  <section class="bg-white py-12 px-4 md:px-0">
+    <div class="max-w-4xl mx-auto text-center">
+      <h2 class="text-3xl font-bold text-blue-700 mb-4">What is Freedom Network?</h2>
+      <p class="text-lg mb-6 text-gray-700">
+        Freedom Network is a one-time payment affiliate platform designed to help you earn passively and actively. 
+        When you join, you get instant access to our premium digital product, and you unlock the opportunity to earn by sharing our platform with others.
+      </p>
+      <h3 class="text-2xl font-semibold text-green-700 mb-2">Why Buy Our Digital Product?</h3>
+      <ul class="text-left max-w-2xl mx-auto mb-6 text-gray-800 list-disc list-inside">
+        <li>Instant access to valuable digital resources (eBooks, guides, or courses) that help you grow personally and financially.</li>
+        <li>One-time payment—no hidden fees or subscriptions.</li>
+        <li>Lifetime access to updates and new releases.</li>
+      </ul>
+      <h3 class="text-2xl font-semibold text-green-700 mb-2">Benefits of Becoming an Affiliate</h3>
+      <ul class="text-left max-w-2xl mx-auto mb-6 text-gray-800 list-disc list-inside">
+        <li>Earn direct commissions for every person you refer.</li>
+        <li>Benefit from our unique matrix system and passive pool earnings.</li>
+        <li>Withdraw your earnings easily and securely.</li>
+        <li>Get access to exclusive training and support.</li>
+        <li>Be part of a growing community focused on financial freedom.</li>
+      </ul>
+      <a href="register.html" class="inline-block bg-blue-600 text-white px-8 py-3 rounded-full font-semibold shadow hover:bg-blue-700 transition">
+        Get Started Now
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 bg-gray-800 text-gray-200 text-sm">
+    &copy; <span id="year"></span> Freedom Network. All rights reserved.
+    <a href="terms-and-con.html" class="text-blue-400 hover:underline ml-2">Terms & Conditions</a>
+  </footer>
+
+  <script type="module">
+    // Firebase Modular SDK imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
+      authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
+      projectId: "polo-tech-media-network-49de0",
+      storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
+      messagingSenderId: "825576121343",
+      appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Modal open/close logic
+    document.getElementById('openSignIn').onclick = () => {
+      document.getElementById('signInModal').classList.remove('hidden');
+    };
+    document.getElementById('closeSignIn').onclick = () => {
+      document.getElementById('signInModal').classList.add('hidden');
+      document.getElementById('signInError').textContent = "";
+      document.getElementById('signInForm').reset();
+    };
+    document.getElementById('signInModal').onclick = (e) => {
+      if (e.target === document.getElementById('signInModal')) {
+        document.getElementById('signInModal').classList.add('hidden');
+        document.getElementById('signInError').textContent = "";
+        document.getElementById('signInForm').reset();
+      }
+    };
+
+    // Sign-in form logic
+    document.getElementById('signInForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('modalEmail').value;
+      const password = document.getElementById('modalPassword').value;
+      const errorDiv = document.getElementById('signInError');
+      errorDiv.textContent = "";
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Check if user is in 'admins' collection
+        const adminRef = doc(db, "admins", user.uid);
+        const adminSnap = await getDoc(adminRef);
+
+        if (adminSnap.exists()) {
+          window.location.href = "admin-dashboard.html";
+        } else {
+          window.location.href = "dashboard.html";
+        }
+      } catch (error) {
+        errorDiv.textContent = error.message.replace("Firebase: ", "");
+      }
+    });
+
+    // Set current year in footer
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+
+</body>
+</html>

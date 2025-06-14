@@ -1,0 +1,68 @@
+<!-- Add this to your user dashboard -->
+<!-- Main container for the entire withdrawal section -->
+<section id="withdrawalSection" class="bg-white p-6 rounded shadow mb-6">
+  
+  <!-- Section title/header -->
+  <h3 class="text-xl font-semibold mb-4">Request Withdrawal</h3>
+  
+  <!-- Balance display area -->
+  <div class="mb-4">
+    <!-- Shows user's current available balance in Nigerian Naira (₦) -->
+    <p>Available Balance: 
+      <span class="font-bold text-green-600">₦
+        <!-- Dynamic balance amount - will be populated by JavaScript -->
+        <span id="availableBalance">0</span>
+      </span>
+    </p>
+    <!-- Information about minimum withdrawal limit -->
+    <p class="text-sm text-gray-600">Minimum withdrawal: ₦1,000</p>
+  </div>
+  
+  <!-- Withdrawal request form -->
+  <form id="withdrawalForm" class="mb-6">
+    
+    <!-- Amount input field -->
+    <div class="mb-4">
+      <label for="withdrawalAmount" class="block mb-2">Withdrawal Amount</label>
+      <!-- Number input with minimum value validation (₦1,000) -->
+      <input type="number" id="withdrawalAmount" name="withdrawalAmount" min="1000" required
+             class="w-full border px-3 py-2 rounded" placeholder="Enter amount" />
+    </div>
+    
+    <!-- Bank name input field -->
+    <div class="mb-4">
+      <label class="block mb-2">Bank Name</label>
+      <!-- Text input for user's bank name -->
+      <input type="text" id="bankName" required
+             class="w-full border px-3 py-2 rounded" placeholder="Your bank name" />
+    </div>
+    
+    <!-- Account number input field -->
+    <div class="mb-4">
+      <label class="block mb-2">Account Number</label>
+      <!-- Text input for bank account number -->
+      <input type="text" id="accountNumber" pattern="[0-9]{10}" required
+             class="w-full border px-3 py-2 rounded" placeholder="Your account number" />
+    </div>
+    
+    <!-- Account holder name input field -->
+    <div class="mb-4">
+      <label class="block mb-2">Account Name</label>
+      <!-- Text input for account holder's full name -->
+      <input type="text" id="accountName" required
+             class="w-full border px-3 py-2 rounded" placeholder="Account holder name" />
+    </div>
+    
+    <!-- Form submission button -->
+    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+      Submit Withdrawal Request
+    </button>
+  </form>
+  
+  <!-- Withdrawal History Section -->
+  <h4 class="text-lg font-semibold mb-3">Withdrawal History</h4>
+  <!-- Container for withdrawal history - content will be loaded dynamically -->
+  <div id="withdrawalHistory" class="overflow-x-auto">
+    <!-- History will be loaded here -->
+  </div>
+</section>

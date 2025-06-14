@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Login - Freedom Network</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    @media (max-width: 640px) {
+      body {
+        padding: 0 !important;
+      }
+      main, .main-content {
+        padding: 0.5rem !important;
+      }
+      .grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+      }
+      .bg-white {
+        margin-bottom: 1rem;
+      }
+      .max-w-4xl, .max-w-6xl {
+        max-width: 100vw !important;
+      }
+      .text-2xl, .text-xl, .text-lg {
+        font-size: 1.1rem !important;
+      }
+      .p-4 {
+        padding: 1rem !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded shadow-md w-full max-w-sm">
+    <h2 class="text-2xl font-bold mb-6 text-blue-700 text-center">Admin Login</h2>
+    <form id="adminLoginForm" class="space-y-4">
+      <input type="email" id="email" placeholder="Email" required class="w-full border px-3 py-2 rounded" />
+      <div class="relative">
+        <input type="password" id="password" placeholder="Password" required class="w-full border px-3 py-2 rounded" />
+        <label class="flex items-center mt-2">
+          <input type="checkbox" id="showPassword" class="mr-2" />
+          Show Password
+        </label>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
+      <a href="#" id="forgotPassword" class="block text-blue-600 mt-2 text-center underline">Forgot Password?</a>
+    </form>
+    <div id="loginError" class="text-red-600 mt-4 text-center"></div>
+  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
+      authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
+      projectId: "polo-tech-media-network-49de0",
+      storageBucket: "polo-tech-media-network-49de0.firebaseapp.com",
+      messagingSenderId: "825576121343",
+      appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    document.getElementById("adminLoginForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const errorDiv = document.getElementById("loginError");
+      errorDiv.textContent = "";
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        // Check admin role
+        const adminDoc = await getDoc(doc(db, "admins", user.uid));
+        if (!adminDoc.exists()) {
+          errorDiv.textContent = "Access denied: Not an admin.";
+          return;
+        }
+        const role = adminDoc.data().role;
+        if (role === "ceo") {
+          window.location.href = "ceo-admin.html";
+        } else {
+          window.location.href = "employee-admin.html";
+        }
+      } catch (err) {
+        errorDiv.textContent = err.message.replace("Firebase:", "");
+      }
+    };
+
+    // Show Password Toggle
+    document.getElementById("showPassword").onchange = function() {
+      const pwd = document.getElementById("password");
+      pwd.type = this.checked ? "text" : "password";
+    };
+
+    // Forgot Password
+    document.getElementById("forgotPassword").onclick = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      if (!email) {
+        document.getElementById("loginError").textContent = "Enter your email above first.";
+        return;
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        document.getElementById("loginError").textContent = "Password reset email sent!";
+      } catch (err) {
+        document.getElementById("loginError").textContent = err.message.replace("Firebase:", "");
+      }
+    };
+  </script>
+</body>
+</html>
