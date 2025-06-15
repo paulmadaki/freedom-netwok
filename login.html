@@ -84,52 +84,54 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    document.getElementById("loginForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById("loginForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
 
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
 
-        // Check if user is in 'admins' collection
-        const adminRef = doc(db, "admins", user.uid);
-        const adminSnap = await getDoc(adminRef);
+          // Check if user is in 'admins' collection
+          const adminRef = doc(db, "admins", user.uid);
+          const adminSnap = await getDoc(adminRef);
 
-        if (adminSnap.exists()) {
-          // Redirect to admin dashboard
-          window.location.href = "admin-dashboard.html";
-        } else {
-          // Regular user
-          window.location.href = "dashboard.html";
+          if (adminSnap.exists()) {
+            // Redirect to admin dashboard
+            window.location.href = "admin-dashboard.html";
+          } else {
+            // Regular user
+            window.location.href = "dashboard.html";
+          }
+        } catch (error) {
+          alert("Login failed: " + error.message);
         }
-      } catch (error) {
-        alert("Login failed: " + error.message);
-      }
+      });
+
+      // Show Password Toggle
+      document.getElementById("showPassword").onchange = function() {
+        const pwd = document.getElementById("password");
+        pwd.type = this.checked ? "text" : "password";
+      };
+
+      // Forgot Password
+      document.getElementById("forgotPasswordLink").onclick = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("email").value.trim();
+        if (!email) {
+          document.getElementById("loginError").textContent = "Enter your email above first.";
+          return;
+        }
+        try {
+          await sendPasswordResetEmail(auth, email);
+          document.getElementById("loginError").textContent = "Password reset email sent!";
+        } catch (err) {
+          document.getElementById("loginError").textContent = err.message.replace("Firebase:", "");
+        }
+      };
     });
-
-    // Show Password Toggle
-    document.getElementById("showPassword").onchange = function() {
-      const pwd = document.getElementById("password");
-      pwd.type = this.checked ? "text" : "password";
-    };
-
-    // Forgot Password
-    document.getElementById("forgotPasswordLink").onclick = async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("email").value.trim();
-      if (!email) {
-        document.getElementById("loginError").textContent = "Enter your email above first.";
-        return;
-      }
-      try {
-        await sendPasswordResetEmail(auth, email);
-        document.getElementById("loginError").textContent = "Password reset email sent!";
-      } catch (err) {
-        document.getElementById("loginError").textContent = err.message.replace("Firebase:", "");
-      }
-    };
   </script>
 </body>
 </html>
