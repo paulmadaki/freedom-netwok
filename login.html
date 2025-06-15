@@ -55,7 +55,9 @@
         <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
           Login
         </button>
-        <a href="#" id="forgotPassword" class="block text-blue-600 mt-2 text-center underline">Forgot Password?</a>
+        <div class="text-right mb-4">
+          <a href="#" id="forgotPasswordLink" class="text-blue-600 hover:underline text-sm">Forgot Password?</a>
+        </div>
         <div id="loginError" class="text-red-600 mt-4 text-center"></div>
       </form>
     </div>
@@ -114,7 +116,7 @@
     };
 
     // Forgot Password
-    document.getElementById("forgotPassword").onclick = async (e) => {
+    document.getElementById("forgotPasswordLink").onclick = async (e) => {
       e.preventDefault();
       const email = document.getElementById("email").value.trim();
       if (!email) {
