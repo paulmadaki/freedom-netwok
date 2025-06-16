@@ -62,7 +62,14 @@
       <h2 class="text-xl font-bold mb-4 text-blue-600 text-center">Sign In</h2>
       <form id="signInForm">
         <input type="email" id="modalEmail" placeholder="Email" required class="w-full border px-3 py-2 rounded mb-3" />
-        <input type="password" id="modalPassword" placeholder="Password" required class="w-full border px-3 py-2 rounded mb-4" />
+        <input type="password" id="modalPassword" placeholder="Password" required class="w-full border px-3 py-2 rounded mb-2" />
+        <label class="flex items-center mb-2 text-sm">
+          <input type="checkbox" id="showModalPassword" class="mr-2" />
+          Show Password
+        </label>
+        <div class="text-right mb-3">
+          <a href="#" id="forgotModalPassword" class="text-blue-600 hover:underline text-xs">Forgot Password?</a>
+        </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 w-full rounded hover:bg-blue-700 transition">Login</button>
         <div id="signInError" class="text-red-600 text-sm mt-2"></div>
       </form>
@@ -106,7 +113,7 @@
   <script type="module">
     // Firebase Modular SDK imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     // Your Firebase config
@@ -140,6 +147,29 @@
         document.getElementById('signInForm').reset();
       }
     };
+
+    // Show Password Toggle
+    document.getElementById('showModalPassword').addEventListener('change', function() {
+      const pwd = document.getElementById('modalPassword');
+      pwd.type = this.checked ? 'text' : 'password';
+    });
+
+    // Forgot Password
+    document.getElementById('forgotModalPassword').addEventListener('click', async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('modalEmail').value.trim();
+      const errorDiv = document.getElementById('signInError');
+      if (!email) {
+        errorDiv.textContent = "Enter your email above first.";
+        return;
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        errorDiv.textContent = "If an account with that email exists, a password reset link has been sent.";
+      } catch (err) {
+        errorDiv.textContent = "If an account with that email exists, a password reset link has been sent.";
+      }
+    });
 
     // Sign-in form logic
     document.getElementById('signInForm').addEventListener('submit', async function(e) {
