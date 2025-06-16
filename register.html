@@ -585,7 +585,15 @@
         matrixPosition: null,
         referredUsers: []
       };
-      await setDoc(doc(db, 'users', userId), userData);
+      // Attempt to write user data to Firestore just in case of network issues
+      try {
+        await setDoc(doc(db, 'users', userId), userData);
+      } catch (error) {
+        console.error('Firestore write error:', error);
+        Utils.showError('Could not save user data. Please contact support with your payment reference.');
+        // Optionally: send error details to your admin email or log somewhere else
+        throw error; // rethrow so the main handler can also catch it
+      }
 
       // Handle referral bonus if referral code is provided
       if (AppState.formData.referral) {
