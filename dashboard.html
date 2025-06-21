@@ -4,16 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Dashboard - Freedom Network</title>
-  
-  <!-- Security Headers -->
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com;
-    style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com;
-    img-src 'self' data: https:;
-  ">
-  
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
   <style>
     @media (max-width: 640px) {
@@ -253,9 +243,27 @@
 
   <!-- Firebase JS SDKs (Version 10) -->
   <script type="module">
+    // --- Firebase Imports ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    
+    import { getFirestore, setDoc, doc, updateDoc, getDoc, increment, arrayUnion, collection, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
+      authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
+      projectId: "polo-tech-media-network-49de0",
+      storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
+      messagingSenderId: "825576121343",
+      appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
+    };
+
+    // --- Initialize Firebase ---
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // --- Utility Functions ---
     function formatDate(val) {
       if (!val) return '';
       if (typeof val.toDate === 'function') return val.toDate().toLocaleString();
@@ -263,7 +271,7 @@
       return '';
     }
 
-    async function loadUserWithdrawals(userId, db) {
+    async function loadUserWithdrawals(userId) {
       const q = query(
         collection(db, "payoutRequests"),
         where("userId", "==", userId),
@@ -293,31 +301,73 @@
       document.getElementById("userWithdrawals").innerHTML = html;
     }
 
-    // Dashboard Class for better organization
+    // --- Referral Bonus Logic ---
+    async function applyReferralBonus(referralCode, newUserId) {
+      try {
+        const referrerDocRef = doc(db, 'users', referralCode);
+        const referrerDoc = await getDoc(referrerDocRef);
+        if (referrerDoc.exists()) {
+          await updateDoc(referrerDocRef, {
+            directReferrals: increment(1),
+            directEarnings: increment(2000), // ₦2,000 bonus
+            referredUsers: arrayUnion(newUserId)
+          });
+        } else {
+          console.warn('Referral code not found:', referralCode);
+        }
+      } catch (error) {
+        console.error('Error applying referral bonus:', error);
+      }
+    }
+
+    // --- Registration Handler ---
+    async function registerUser(formData, paymentResponse, transactionRef) {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const user = userCredential.user;
+
+      // 2. Create user document in Firestore with UID as referralCode
+      const userData = {
+        uid: user.uid,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        referralCode: user.uid,
+        registrationDate: new Date(),
+        paymentDetails: {
+          reference: paymentResponse.reference,
+          transactionRef: transactionRef,
+          amount: 750000,
+          status: 'successful',
+          paidAt: new Date()
+        },
+        accountStatus: 'active',
+        directReferrals: 0,
+        directEarnings: 0,
+        poolEarnings: 0,
+        matrixLevel: 1,
+        matrixPosition: null
+      };
+      await setDoc(doc(db, 'users', user.uid), userData);
+
+      // 3. If a referral code was used, apply referral bonus
+      if (formData.referral) {
+        await applyReferralBonus(formData.referral, user.uid);
+      }
+    }
+
+    // --- Dashboard Class ---
     class Dashboard {
       constructor() {
-        this.MINIMUM_PAYOUT = 5000; // Minimum payout amount in Naira
-        this.initFirebase();
-        this.bindEvents();
+        this.MINIMUM_PAYOUT = 5000;
+        this.auth = auth;
+        this.db = db;
         this.elements = this.getElements();
-      }
-
-      initFirebase() {
-        // Firebase Config
-        const firebaseConfig = {
-          apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
-          authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
-          projectId: "polo-tech-media-network-49de0",
-          storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
-          messagingSenderId: "825576121343",
-          appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
-        };
-
-        this.app = initializeApp(firebaseConfig);
-        this.auth = getAuth(this.app);
-        this.db = getFirestore(this.app);
-
-        // Set up auth state listener
+        this.bindEvents();
         onAuthStateChanged(this.auth, (user) => this.handleAuthStateChange(user));
       }
 
@@ -345,73 +395,44 @@
       }
 
       bindEvents() {
-        // Logout button
         document.addEventListener('click', (e) => {
-          if (e.target.id === 'logoutBtn') {
-            this.handleLogout();
-          }
-          if (e.target.id === 'requestPayout') {
-            this.handlePayoutRequest();
-          }
-          if (e.target.id === 'copyReferralBtn') {
-            this.copyReferralLink();
-          }
+          if (e.target.id === 'logoutBtn') this.handleLogout();
+          if (e.target.id === 'requestPayout') this.handlePayoutRequest();
+          if (e.target.id === 'copyReferralBtn') this.copyReferralLink();
         });
-
-        // Account form submission
         document.addEventListener('submit', (e) => {
           if (e.target.id === 'accountForm') {
             e.preventDefault();
             this.handleBankDetailsSubmission();
           }
         });
-
-        // Input validation
         document.addEventListener('input', (e) => {
-          if (e.target.id === 'accountNumber') {
-            this.validateAccountNumber(e.target);
-          }
-          if (e.target.id === 'bankName') {
-            this.validateBankName(e.target);
-          }
+          if (e.target.id === 'accountNumber') this.validateAccountNumber(e.target);
+          if (e.target.id === 'bankName') this.validateBankName(e.target);
         });
       }
 
-      showLoading() {
-        this.elements.loadingSpinner.classList.remove('hidden');
-      }
-
-      hideLoading() {
-        this.elements.loadingSpinner.classList.add('hidden');
-      }
-
+      showLoading() { this.elements.loadingSpinner.classList.remove('hidden'); }
+      hideLoading() { this.elements.loadingSpinner.classList.add('hidden'); }
       showError(message) {
         this.elements.errorMessage.textContent = message;
         this.elements.errorContainer.classList.remove('hidden');
         this.hideLoading();
       }
-
-      hideError() {
-        this.elements.errorContainer.classList.add('hidden');
-      }
-
+      hideError() { this.elements.errorContainer.classList.add('hidden'); }
       showMessage(element, message, isError = false) {
         if (!element) return;
         element.textContent = message;
         element.className = isError ? 'error-message' : 'success-message';
         element.classList.remove('hidden');
-        setTimeout(() => {
-          element.classList.add('hidden');
-        }, 5000);
+        setTimeout(() => { element.classList.add('hidden'); }, 5000);
       }
 
       async handleAuthStateChange(user) {
         if (!user) {
-          // Redirect to login if not authenticated
           window.location.href = 'login.html';
           return;
         }
-
         try {
           this.showLoading();
           await this.loadUserData(user);
@@ -424,21 +445,14 @@
 
       async loadUserData(user) {
         try {
-          // Display user email
           this.elements.userEmail.textContent = user.email;
-
-          // Get user document from Firestore
           const userDoc = await getDoc(doc(this.db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            // Update UI with user data
             this.updateDashboard(userData, user.uid);
-            // Load bank details if they exist
             this.loadBankDetails(userData);
-            // Load user withdrawals
-            loadUserWithdrawals(user.uid, this.db);
+            loadUserWithdrawals(user.uid);
           } else {
-            // Create new user document if it doesn't exist
             await this.createUserDocument(user);
           }
         } catch (error) {
@@ -448,7 +462,6 @@
       }
 
       async createUserDocument(user) {
-        // Default user data structure
         const userData = {
           email: user.email,
           directReferrals: 0,
@@ -462,28 +475,19 @@
         this.updateDashboard(userData, user.uid);
       }
 
-      // --- MAIN DASHBOARD UPDATE LOGIC ---
       updateDashboard(userData, userId) {
-        // Generate referral link
         const referralLink = `${window.location.origin}/register.html?ref=${userData.referralCode || userId}`;
         this.elements.referralLink.textContent = referralLink;
-
-        // Update statistics
         this.elements.totalReferrals.textContent = userData.directReferrals || 0;
         this.elements.userLevel.textContent = `Level ${userData.matrixLevel || 1}`;
         this.elements.directEarnings.textContent = `₦${(userData.directEarnings || 0).toLocaleString()}`;
         this.elements.poolEarnings.textContent = `₦${(userData.poolEarnings || 0).toLocaleString()}`;
-
         const totalEarnings = (userData.directEarnings || 0) + (userData.poolEarnings || 0);
         this.elements.totalEarnings.textContent = `₦${totalEarnings.toLocaleString()}`;
-
-        // Enable/disable payout button based on minimum earnings
         this.elements.requestPayout.disabled = totalEarnings < this.MINIMUM_PAYOUT;
-        if (totalEarnings < this.MINIMUM_PAYOUT) {
-          this.elements.requestPayout.title = `Minimum payout is ₦${this.MINIMUM_PAYOUT.toLocaleString()}`;
-        } else {
-          this.elements.requestPayout.title = '';
-        }
+        this.elements.requestPayout.title = totalEarnings < this.MINIMUM_PAYOUT
+          ? `Minimum payout is ₦${this.MINIMUM_PAYOUT.toLocaleString()}`
+          : '';
       }
 
       loadBankDetails(userData) {
@@ -507,15 +511,10 @@
       async handleBankDetailsSubmission() {
         const bankName = this.elements.bankName.value.trim();
         const accountNumber = this.elements.accountNumber.value.trim();
-
-        if (!this.validateBankDetails(bankName, accountNumber)) {
-          return;
-        }
-
+        if (!this.validateBankDetails(bankName, accountNumber)) return;
         try {
           const user = this.auth.currentUser;
           if (!user) return;
-
           await updateDoc(doc(this.db, 'users', user.uid), {
             bankDetails: {
               bankName: bankName,
@@ -523,7 +522,6 @@
               updatedAt: new Date()
             }
           });
-
           this.showMessage(this.elements.accountMsg, 'Bank details saved successfully!');
         } catch (error) {
           console.error('Error saving bank details:', error);
@@ -533,30 +531,24 @@
 
       validateBankDetails(bankName, accountNumber) {
         let isValid = true;
-
-        // Validate bank name
         if (!bankName || bankName.length < 3) {
           this.showValidationError('bankName', 'Bank name must be at least 3 characters long');
           isValid = false;
         } else {
           this.hideValidationError('bankName');
         }
-
-        // Validate account number
         if (!accountNumber || !/^\d{10}$/.test(accountNumber)) {
           this.showValidationError('accountNumber', 'Account number must be exactly 10 digits');
           isValid = false;
         } else {
           this.hideValidationError('accountNumber');
         }
-
         return isValid;
       }
 
       validateAccountNumber(input) {
-        const value = input.value.replace(/\D/g, ''); // Remove non-digits
+        const value = input.value.replace(/\D/g, '');
         input.value = value;
-
         if (value.length !== 10) {
           this.showValidationError('accountNumber', 'Account number must be exactly 10 digits');
         } else {
@@ -592,25 +584,18 @@
         try {
           const user = this.auth.currentUser;
           if (!user) return;
-
-          // Get current user data
           const userDoc = await getDoc(doc(this.db, 'users', user.uid));
           if (!userDoc.exists()) return;
-
           const userData = userDoc.data();
           const totalEarnings = (userData.directEarnings || 0) + (userData.poolEarnings || 0);
-
           if (totalEarnings < this.MINIMUM_PAYOUT) {
             alert(`Minimum payout amount is ₦${this.MINIMUM_PAYOUT.toLocaleString()}`);
             return;
           }
-
           if (!userData.bankDetails) {
             alert('Please add your bank details before requesting a payout.');
             return;
           }
-
-          // --- Prevent duplicate payout requests ---
           const q = query(
             collection(this.db, 'payoutRequests'),
             where('userId', '==', user.uid),
@@ -621,8 +606,6 @@
             alert('You already have a payout request in progress or paid. Please wait until it is processed before requesting again.');
             return;
           }
-
-          // Create payout request
           const payoutData = {
             userId: user.uid,
             email: user.email,
@@ -631,12 +614,9 @@
             status: 'pending',
             requestedAt: serverTimestamp()
           };
-
           await setDoc(doc(this.db, 'payoutRequests', `${user.uid}_${Date.now()}`), payoutData);
-
           alert('Payout request submitted successfully! You will be contacted within 24-48 hours.');
-          // Optionally reload payout history
-          loadUserWithdrawals(user.uid, this.db);
+          loadUserWithdrawals(user.uid);
         } catch (error) {
           console.error('Error requesting payout:', error);
           alert('Failed to submit payout request. Please try again.');
@@ -675,105 +655,13 @@
       }
     }
 
-    // Initialize dashboard when DOM is loaded
+    // --- Initialize dashboard when DOM is loaded ---
     document.addEventListener('DOMContentLoaded', () => {
       new Dashboard();
     });
-  </script>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, setDoc, doc, updateDoc, getDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-    // --- Firebase Config ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyDauAhAQEbFZcaj4hTnQsi1sjZP4FiQj4Y",
-      authDomain: "polo-tech-media-network-49de0.firebaseapp.com",
-      projectId: "polo-tech-media-network-49de0",
-      storageBucket: "polo-tech-media-network-49de0.firebasestorage.app",
-      messagingSenderId: "825576121343",
-      appId: "1:825576121343:web:6d0f8593e2be4c34a3bdca"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // --- Registration Handler ---
-    async function registerUser(formData, paymentResponse, transactionRef) {
-      // 1. Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-      const user = userCredential.user;
-
-      // 2. Create user document in Firestore with UID as referralCode
-      const userData = {
-        uid: user.uid,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        referralCode: user.uid, // Each user gets their UID as their referral code
-        registrationDate: new Date(),
-        paymentDetails: {
-          reference: paymentResponse.reference,
-          transactionRef: transactionRef,
-          amount: 750000, // ₦7,500 in kobo
-          status: 'successful',
-          paidAt: new Date()
-        },
-        accountStatus: 'active',
-        directReferrals: 0,
-        directEarnings: 0,
-        poolEarnings: 0,
-        matrixLevel: 1,
-        matrixPosition: null
-      };
-      await setDoc(doc(db, 'users', user.uid), userData);
-
-      // 3. If a referral code was used, apply referral bonus
-      if (formData.referral) {
-        await applyReferralBonus(formData.referral, user.uid);
-      }
-    }
-
-    // --- Referral Bonus Logic ---
-    async function applyReferralBonus(referralCode, newUserId) {
-      try {
-        // Assume referralCode is the UID of the referrer
-        const referrerDocRef = doc(db, 'users', referralCode);
-        const referrerDoc = await getDoc(referrerDocRef);
-        if (referrerDoc.exists()) {
-          await updateDoc(referrerDocRef, {
-            directReferrals: increment(1),
-            directEarnings: increment(2500), // ₦2,500 bonus
-            referredUsers: arrayUnion(newUserId)
-          });
-        } else {
-          console.warn('Referral code not found:', referralCode);
-        }
-      } catch (error) {
-        console.error('Error applying referral bonus:', error);
-      }
-    }
-
-    // --- Example Usage in Your Payment Callback ---
-    async function handlePaymentSuccess(response, transactionRef, formData) {
-      try {
-        await registerUser(formData, response, transactionRef);
-        // Redirect or show success message
-        alert('Registration successful!');
-        window.location.href = 'thank-you.html';
-      } catch (error) {
-        alert('Registration failed: ' + error.message);
-      }
-    }
-
-    // --- Example: Collect formData and call handlePaymentSuccess after payment ---
-    // formData = { name, email, phone, password, referral }
+    // --- Example: Registration handler usage ---
+    // Call registerUser(formData, paymentResponse, transactionRef) after payment on registration page
   </script>
 </body>
 </html>
