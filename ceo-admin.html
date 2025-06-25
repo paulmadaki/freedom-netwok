@@ -353,9 +353,9 @@
     // --- Initial Setup ---
     window.onload = async () => {
       // Create default CEO admin if not exists
-      const ceoSnap = await getDoc(doc(db, "admins", "VJxOY83saPZTqjPTUhBTONSYeMF2"));
+      const ceoSnap = await getDoc(doc(db, "admins", "xsKWoaxCtEgadSJPAq1x60ObU9p1"));
       if (!ceoSnap.exists()) {
-        await setDoc(doc(db, "admins", "VJxOY83saPZTqjPTUhBTONSYeMF2"), {
+        await setDoc(doc(db, "admins", "xsKWoaxCtEgadSJPAq1x60ObU9p1"), {
           email: "polsaint4@gmail.com",
           role: "ceo",
           addedBy: "system",
